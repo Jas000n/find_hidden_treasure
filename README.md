@@ -1,5 +1,16 @@
 # find_hidden_treasure
+
 a multi-player client-server game using linux system call
+
+## Installation
+    git clone https://github.com/Jas000n/find_hidden_treasure.git
+## Usage
+    cd find_hidden_treasure
+    //use this to init game, listen on the port you like, waiting for clients(gamers) to connect,  8080 for example
+    ./server 127.0.0.1 8080 
+    //use this to connect game server, use w, a, s, d to move the player(a ball) and hunt the hidden treasure
+    ./client 1270.0.0.1 8080 	
+
 ## 1   概述
 
 每个玩家可以通过键盘的W，A，S，D操控小球探索地图，即控制台，在过程中需要寻找一处隐藏的宝藏（具体位置由服务器指定），需要比其他连接至服务器的玩家更快找到宝藏以获胜（移动到宝藏坐标）。当其中一名玩家胜利后其他玩家客户端会被提示失败，显示失败界面。游戏随服务器性能影响支持不同数量的玩家同时游玩。
