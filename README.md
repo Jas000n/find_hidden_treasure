@@ -9,7 +9,7 @@ a multi-player client-server game using linux system call
     //use this to init game, listen on the port you like, waiting for clients(gamers) to connect,  8080 for example
     ./server 127.0.0.1 8080 
     //use this to connect game server, use w, a, s, d to move the player(a ball) and hunt the hidden treasure
-    ./client 1270.0.0.1 8080 	
+    ./client 127.0.0.1 8080 	
 
 ## 1   概述
 
