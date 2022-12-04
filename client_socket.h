@@ -4,19 +4,29 @@
 
 #ifndef FINAL_CLIENT_SOCKET_H
 #define FINAL_CLIENT_SOCKET_H
-void forward(int server_fd,int pipe_fd)
+
+#include <signal.h>
+#include <string.h>
+#include <fcntl.h>
+
+void forward(int server_fd, int pipe_fd, int child_pid)
 {
-    char buf[1024];
+    char buf[2];
     int n;
+    int success;
+//    int pid =getpid();
+    int hand_shake[2];
+    hand_shake[0] = child_pid;
+
+    write(server_fd,hand_shake,4);
     while(1){
         n = read(pipe_fd,buf,sizeof (buf));
-        write(server_fd, buf, n);
+        success = write(server_fd, buf, n);
+        }
     }
 
 
 
-
-}
 int connect_server(char *av[])//return fd
 {
     int tcp_socket;
