@@ -6,9 +6,12 @@ a multi-player client-server game using linux system call
     git clone https://github.com/Jas000n/find_hidden_treasure.git
 ## Usage
     cd find_hidden_treasure
-    //use this to init game, listen on the port you like, waiting for clients(gamers) to connect,  8080 for example
+    
+    //use this to init game, listen on the port you like, waiting for clients(gamers) to connect,  port 4399 for example
     ./server 4399
-    //use this to connect game server, use w, a, s, d to move the player(a ball) and hunt the hidden treasure
+    
+    //open a new terminal and use this to connect game server, 
+    //use w, a, s, d to move the player(a ball) and hunt the hidden treasure
     ./client 127.0.0.1 4399	
 
 ## 1   概述
