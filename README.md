@@ -19,17 +19,17 @@ a multi-player client-server game using linux system call
 
 这里只放几张游玩过程的截图，具体游玩视频会放在答辩视频中。
 
-![img](https://tva1.sinaimg.cn/large/e6c9d24egy1h1drdbx647j20jy0b8t9c.jpg)
+![img](./pics/img.png)
 
-![img](https://tva1.sinaimg.cn/large/e6c9d24egy1h1drdcpvglj20jx0b73z4.jpg)
+![img](./pics/img_1.png)
 
-![img](https://tva1.sinaimg.cn/large/e6c9d24egy1h1drda87nij20jx0b7aaq.jpg)
+![img](./pics/img_2.png)
 
 ## 3   系统设计和系统实现
 
 因为linux下的线程并不比进程轻量许多，而且线程间通信较为复杂，所以客户端和服务器端都选择用多进程实现。下图为我设计的系统
 
-![img](https://tva1.sinaimg.cn/large/e6c9d24egy1h1drdayqyoj20zb0ec3zj.jpg)
+![img](./pics/img_3.png)
 
  
 
@@ -67,6 +67,6 @@ a multi-player client-server game using linux system call
 
 这里说一下设计系统时候的一个小插曲，一开始用telnet当客户端，想实现任何人只要有一台电脑就能玩我这款游戏，不需要安装客户端，前后端所有逻辑都在服务器上实现。下图为当时的设计思路：
 
-![img](https://tva1.sinaimg.cn/large/e6c9d24egy1h1drdd7suhj20z90b3jse.jpg)
+![img](./pics/img_4.png)
 
 先把服务器的1文件描述符关闭，再接受客户端telnet的tcp连接，根据最低可用原则此时socket连接的文件描述符会是1，之后在服务器上运行的curses就可以显示在客户端上了（因为curses像printf一样往标准输出，即1上写）。又因为server的标准输出被关闭了，不能打印系统日志方便调试，因此又打开一个log.txt文件，将server运行时状态，接受的客户端消息写入，方便查错。然而这么做的结果就是前后端都混杂在一起，逻辑极其混乱，遂放弃。所以后来又好好设计了系统，让前后端逻辑分离。
