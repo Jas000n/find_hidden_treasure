@@ -38,7 +38,7 @@ Because threads in linux operating system are not much lighter than processes, a
 ### Client: 
 The client forks the child process named 'game' to run the curses program, and the parent process 'socket' to communicate with the server.
 
-The child process 'game' is the front-end, which 'getchar' from the keyboard, moves the ball according to the inputs w, a, s, d, and writes the moving operation to the socket parent through the pipeline. And when it receives two different Semaphores representing the winner and the loser, it calls different functions to show the result of the game.
+The child process 'game' is the front-end, which 'getchar' from the keyboard, moves the ball according to the inputs w, a, s, d, and writes the moving operation to the socket parent through the pipeline. And when it receives two different signals representing the winner and the loser, it calls different functions to show the result of the game.
 
 The parent process ‘socket’ is responsible for connecting to the server, first tell the client itself to the server (similar to handshake), then read the direction of movement of the ball written by the child process from the pipeline, and then write the action of the ball to the server. The server will calculate the coordinates of where the ball is located, and whether it has discovered the treasure, which ensures that the client can not cheat.
 
@@ -47,7 +47,7 @@ The parent process ‘socket’ is responsible for connecting to the server, fir
 
 客户端：客户端fork出game子进程负责运行curses程序，父进程socket负责与服务器通讯。
 
-子进程game相当于前端，从键盘getch，根据输入的w，a，s，d移动小球，并且将移动的操作通过管道写给socket父进程。并且在收到代表输赢的两种不同的信号量时，调用不同的函数展示游戏结果。
+子进程game相当于前端，从键盘getch，根据输入的w，a，s，d移动小球，并且将移动的操作通过管道写给socket父进程。并且在收到代表输赢的两种不同的信号时，调用不同的函数展示游戏结果。
 
 父进程socket负责连接服务器，先把客户端自身的情况告诉服务器（类似握手），之后从管道读子进程写入的小球的移动方向后，将小球的动作写给服务器，由服务器计算小球所在坐标以及是否探寻到宝藏，这样保证客户端不能作弊。
 
@@ -55,13 +55,13 @@ The parent process ‘socket’ is responsible for connecting to the server, fir
 服务器端：用prefork的方法提前创建出子进程（接线员），这些接线员通过共享内存的方式确定其他接线员连接的客户端是否赢得了游戏。如果一个接线员连接的玩家赢得了游戏，共享内存会被该接线员写为“Y”，表明已经有人赢得了游戏，并且在写的过程会加锁，保证只有最先找到宝藏的玩家可以获胜。如果一个接线员自己连接的玩家没有赢得游戏而共享内存已被写为“Y”则表明有其他玩家已经赢得了游戏，这时玩家客户端会显示游戏失败。每个接线员在服务过一定次数过后会“死亡”，并且服务器会fork出新的进程补充上来，保持接线员的数量。
 ## 4 TECHNOLOGIES USED
 The main techniques applied in this system are:
-* 1. inter-process communication: pipes (parent and child processes within the client), sockets (between the parent process of the client and the operator within the server), shared memory (between different operators within the server), semaphores (sent to the client's child processes)
+* 1. inter-process communication: pipes (parent and child processes within the client), sockets (between the parent process of the client and the operator within the server), shared memory (between different operators within the server), signals (sent to the client's child processes)
 * 2. curses library for displaying the game interface, game rules and game results such as victory and wasted on the client side
 * 3. process synchronization: POSIX semaphores (to ensure that operators read and write to shared memory without problems)
 * 4. Robustness: taking into account such as not enough memory can not fork, invalid file descriptor read and write failures, etc., there will be no kernel error.
 
 在这个系统中应用的技术主要有：
-* 1. 进程间通信：管道（客户端内父进程和子进程），socket（客户端父进程和服务器内的接线员），共享内存（服务器内的不同接线员之间），信号量（发送给客户端子进程）
+* 1. 进程间通信：管道（客户端内父进程和子进程），socket（客户端父进程和服务器内的接线员），共享内存（服务器内的不同接线员之间），信号（发送给客户端子进程）
 * 2. curses库，用于在客户端上显示游戏界面、游戏规则和胜利失败等游戏结果
 * 3. 进程同步：POSIX信号量（保证接线员们对共享内存的读写不出问题）
 * 4. 健壮性：在函数的关键位置都做了处理，考虑了诸如内存不够不能fork，对无效文件描述符读写失败等情况，不会出现内核错误。
