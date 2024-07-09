@@ -3,6 +3,7 @@
 A multi-player client-server treasure hunt game based on Linux system calls & multiprocessing.
 ## Installation
     git clone https://github.com/Jas000n/find_hidden_treasure.git
+    sudo apt-get install libncurses5-dev
 ## Usage
     cd find_hidden_treasure
     
