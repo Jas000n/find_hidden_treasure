@@ -1,2 +1,6 @@
 .idea
 cmake-build-debug
+a.out
+/client
+/server
+build

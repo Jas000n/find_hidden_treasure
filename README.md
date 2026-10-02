@@ -4,9 +4,10 @@ A multi-player client-server treasure hunt game based on Linux system calls & mu
 ## Installation
     git clone https://github.com/Jas000n/find_hidden_treasure.git
     sudo apt-get install libncurses5-dev
-## Usage
     cd find_hidden_treasure
-    
+    gcc -o server server.c -pthread
+    gcc -o client client.c -lncurses
+## Usage
     //use this to init game, listen on the port you like, waiting for clients(gamers) to connect, port 4399 for example
     
     ./server 4399
@@ -41,19 +42,19 @@ The client forks the child process named 'game' to run the curses program, and t
 
 The child process 'game' is the front-end, which 'getchar' from the keyboard, moves the ball according to the inputs w, a, s, d, and writes the moving operation to the socket parent through the pipeline. And when it receives two different signals representing the winner and the loser, it calls different functions to show the result of the game.
 
-The parent process ‘socket’ is responsible for connecting to the server, first tell the client itself to the server (similar to handshake), then read the direction of movement of the ball written by the child process from the pipeline, and then write the action of the ball to the server. The server will calculate the coordinates of where the ball is located, and whether it has discovered the treasure, which ensures that the client can not cheat.
+The parent process ‘socket’ is responsible for connecting to the server. It reads the direction of movement of the ball written by the child process from the pipeline, writes the action of the ball to the server, and waits for the server's reply. The server will calculate the coordinates of where the ball is located, and whether it has discovered the treasure, which ensures that the client can not cheat. When the server replies that the player has won or lost, the parent process sends the corresponding signal to the child process 'game'.
 
 ### Server side: 
-'prefork' to create child processes (operators) in advance. These operators determine whether other operator-connected clients have won the game by shared memory. If a player connected by an operator wins the game, the shared memory will be written to 'Y' by the operator, indicating that someone has already won the game, and a lock will be added during the write process to ensure that only the first player to find the treasure can win. If an operator's own connected player does not win the game and the shared memory has been written to 'Y', then another player has already won the game, and the player's client will show that the game has failed. Each operator will be 'killed' after serving a certain number of times, and the server will fork a new process to keep the number of operators up, to prevent resource leakage, memory fragmentation, etc.
+'prefork' to create child processes (operators) in advance. These operators determine whether other operator-connected clients have won the game by shared memory, which holds the number of the current round. Each player joins the current round when connecting. If a player connected by an operator finds the treasure, the operator checks and increases the round number under a lock, so only the first player to find the treasure can win, and players connecting later start a new round. If the round number has changed by the time an operator's own player moves, another player has already won that round, and the player's client will show that the game has failed. Each operator will be 'killed' after serving a certain number of times, and the server will fork a new process to keep the number of operators up, to prevent resource leakage, memory fragmentation, etc.
 
 客户端：客户端fork出game子进程负责运行curses程序，父进程socket负责与服务器通讯。
 
 子进程game相当于前端，从键盘getch，根据输入的w，a，s，d移动小球，并且将移动的操作通过管道写给socket父进程。并且在收到代表输赢的两种不同的信号时，调用不同的函数展示游戏结果。
 
-父进程socket负责连接服务器，先把客户端自身的情况告诉服务器（类似握手），之后从管道读子进程写入的小球的移动方向后，将小球的动作写给服务器，由服务器计算小球所在坐标以及是否探寻到宝藏，这样保证客户端不能作弊。
+父进程socket负责连接服务器，从管道读子进程写入的小球的移动方向后，将小球的动作写给服务器并等待服务器的回复，由服务器计算小球所在坐标以及是否探寻到宝藏，这样保证客户端不能作弊。服务器回复玩家胜利或失败时，父进程给game子进程发送对应的信号。
 
 
-服务器端：用prefork的方法提前创建出子进程（接线员），这些接线员通过共享内存的方式确定其他接线员连接的客户端是否赢得了游戏。如果一个接线员连接的玩家赢得了游戏，共享内存会被该接线员写为“Y”，表明已经有人赢得了游戏，并且在写的过程会加锁，保证只有最先找到宝藏的玩家可以获胜。如果一个接线员自己连接的玩家没有赢得游戏而共享内存已被写为“Y”则表明有其他玩家已经赢得了游戏，这时玩家客户端会显示游戏失败。每个接线员在服务过一定次数过后会“死亡”，并且服务器会fork出新的进程补充上来，保持接线员的数量。
+服务器端：用prefork的方法提前创建出子进程（接线员），这些接线员通过共享内存的方式确定其他接线员连接的客户端是否赢得了游戏，共享内存里记录的是当前的局数，玩家连接时加入当前这一局。如果一个接线员连接的玩家找到了宝藏，该接线员会在加锁的情况下检查并把局数加一，保证只有最先找到宝藏的玩家可以获胜，之后连接的玩家开始新的一局。如果一个接线员自己连接的玩家移动时局数已经变了，则表明有其他玩家已经赢得了这一局，这时玩家客户端会显示游戏失败。每个接线员在服务过一定次数过后会“死亡”，并且服务器会fork出新的进程补充上来，保持接线员的数量。
 ## 4 TECHNOLOGIES USED
 The main techniques applied in this system are:
 * 1. inter-process communication: pipes (parent and child processes within the client), sockets (between the parent process of the client and the operator within the server), shared memory (between different operators within the server), signals (sent to the client's child processes)

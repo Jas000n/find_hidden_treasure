@@ -4,13 +4,19 @@
 
 
 #include <unistd.h>
-#include <string.h>
 #include <stdio.h>
-#include <signal.h>
-
-#include <stdlib.h>
 #include <semaphore.h>
-#include <fcntl.h>
+
+// replies sent to the client after each move
+#define GOING_ON 'C'
+#define WIN      'W'
+#define LOSE     'L'
+
+struct game //lives in shared memory, seen by every operator
+{
+    sem_t mutex;
+    int round;//bumped each time someone finds the treasure, which starts a new game
+};
 
 int arrive(int c_x, int c_y,int f_x,int f_y){
     int end = 0;
@@ -20,72 +26,69 @@ int arrive(int c_x, int c_y,int f_x,int f_y){
     printf("c_x =%d,c_y=%d,f_x=%d,f_y=%d\n",c_x,c_y,f_x,f_y);
     return end;
 }
-void calculate_result(int myend,char * state,int client_pid)
+char calculate_result(int myend,struct game *game,int my_round)
 //after each step, compare my current result and other client
 {
-    sem_t *mutex;
-    if((mutex = sem_open("mutexsem", O_CREAT, 0644, 1)) == SEM_FAILED) {
-        perror("unable to create semaphore");
-        sem_unlink("mutexsem");
-        exit(1);
-    }
-    if(myend==1){
-        kill(client_pid,2);
-        sem_wait(mutex);
-        strcpy(state, "Y");
-        sem_post(mutex);
-        printf("%d client has reached the spot!\n",client_pid);
+    char result;
+    //check and update under one lock, so only the first player to reach the spot wins
+    sem_wait(&game->mutex);
+    if(game->round!=my_round){
+        result = LOSE;
+    }else if(myend==1){
+        game->round++;
+        result = WIN;
     }else{
-
-        if(strcmp(state,"Y")==0){
-            printf("Other player find it, you lose!");
-            kill(client_pid,3);
+        result = GOING_ON;
+    }
+    sem_post(&game->mutex);
+    return result;
+}
+void handlefd(int fd,int c_x,int c_y,int f_x,int f_y,struct game *game){
+    char c;
+    char result;
+    int my_round;
+    sem_wait(&game->mutex);
+    my_round = game->round;
+    sem_post(&game->mutex);
+    //one byte per move, so keys that arrive together are never lost
+    while(read(fd, &c, 1)==1){
+        printf("server %d is serving a client in round %d\n",getpid(),my_round);
+        printf("%c\n",c);
+        switch(c){
+            case 'a':
+                printf("move left\n");
+                c_x--;
+                break;
+            case 'w':
+                printf("move up!\n");
+                c_y--;
+                break;
+            case 's':
+                printf("move down!\n");
+                c_y++;
+                break;
+            case 'd':
+                printf("move right\n");
+                c_x++;
+                break;
+            default:
+                continue;//not a move
+        }
+        result = calculate_result(arrive(c_x,c_y,f_x,f_y),game,my_round);
+        if(result==WIN){
+            printf("%d's client has reached the spot!\n",getpid());
+        }else if(result==LOSE){
+            printf("Other player find it, you lose!\n");
         }else{
             printf("It is not the spot,keep going!\n");
         }
-    }
-}
-void handlefd(int fd,int c_x,int c_y,int f_x,int f_y,char * state){
-    char buf[2];
-    int n;
-    int end;//state of current game
-    int client[2];//pid of client
-    int s = read(fd,client,sizeof (client));
-    if(s==-1){
-        perror("something went wrong!");
-    }
-    while((n=read(fd, buf, sizeof(buf)))>0){
-        printf("server %d is serve client %d\n",getpid(),client[0]);
-        printf("%s\n",buf);
-        if(strcmp(buf,"a")==0){
-            printf("move left\n");
-            c_x--;
-            end = arrive(c_x,c_y,f_x,f_y);
-            calculate_result(end,state,client[0]);
-        }
-        if(strcmp(buf,"w")==0){
-            printf("move up!\n");
-            c_y--;
-            end = arrive(c_x,c_y,f_x,f_y);
-            calculate_result(end,state,client[0]);
-
-        }
-        if(strcmp(buf,"s")==0){
-            printf("move down!\n");
-            c_y++;
-            end = arrive(c_x,c_y,f_x,f_y);
-            calculate_result(end,state,client[0]);
-
-        }
-        if(strcmp(buf,"d")==0){
-            printf("move right\n");
-            c_x++;
-            end = arrive(c_x,c_y,f_x,f_y);
-            calculate_result(end,state,client[0]);
-
-        }
         printf("=========================================\n");
-
+        if(write(fd,&result,1)!=1){
+            perror("cannot reply to client");
+            return;
+        }
+        if(result!=GOING_ON){
+            return;//this client's game is over
+        }
     }
 }
-

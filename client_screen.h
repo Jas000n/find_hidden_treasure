@@ -10,31 +10,35 @@
 #include <signal.h>
 
 #define	BALL	"O"
-#define BLANK   "  "
-#define V_END "You found the hidden treasure! You win the game!\n\t\t\t\tOther players only have one move left!\n\t\t\t\tThis game is finished!\n\t\t\t\tPress CTRL + C to exit!"
-#define L_END "You miss your last shot! Other client found the hidden treasure before you!\n\t\t\t\tThis game is finished!\n\t\t\t\tPress CTRL + C to exit!"
-void v_f(){
-    initscr();
-    crmode();
-    noecho();
-    clear();
-    move(20,20);
-    addstr(V_END);
-    refresh();
+#define BLANK   " "
+#define V_END "You found the hidden treasure! You win the game!\n\t\t\t\tOther players only have one move left!\n\t\t\t\tThis game is finished!\n\t\t\t\tPress any key to exit!"
+#define L_END "You miss your last shot! Other client found the hidden treasure before you!\n\t\t\t\tThis game is finished!\n\t\t\t\tPress any key to exit!"
+
+// set by signal handlers, everything else happens in the main loop
+volatile sig_atomic_t game_result = 0;//'W' for win, 'L' for lose
+volatile sig_atomic_t want_quit = 0;
+
+void on_win(int sig){
+    (void) sig;
+    game_result = 'W';
 }
-void l_f(){
-    initscr();
-    crmode();
-    noecho();
+void on_lose(int sig){
+    (void) sig;
+    game_result = 'L';
+}
+void on_quit(int sig){
+    (void) sig;
+    want_quit = 1;
+}
+void show_end(const char *msg){
     clear();
     move(20,20);
-    addstr(L_END);
+    addstr(msg);
     refresh();
+    flushinp();
+    while(!want_quit && getch()==ERR);//wait for any key
 }
 void notice(){
-    initscr();
-    crmode();
-    noecho();
     clear();
     move(0,0);
     char notice[]="You need to control you ball with : w,a,s,d\n"
@@ -46,67 +50,62 @@ void notice(){
 }
 void screen(int pipe_fd)
 {
-    signal(2,v_f);
-    signal(3,l_f);
+    signal(SIGUSR1,on_win);
+    signal(SIGUSR2,on_lose);
+    signal(SIGINT,on_quit);
+    signal(SIGTERM,on_quit);
+    //if the socket process is gone, write fails and we leave the loop instead of dying
+    signal(SIGPIPE,SIG_IGN);
     char buf[1];
     int x=20;
     int y=20;
+    int new_x;
+    int new_y;
     int c;
+    initscr();
+    crmode();
+    noecho();
     notice();
     sleep(10);
 
     clear();
     move(y,x);
     addstr(BALL);
-    while(1){
+    refresh();
+    timeout(100);//getch returns every 100ms so the flags above are noticed
+    while(!want_quit && !game_result){
         c = getch();
-
+        new_x = x;
+        new_y = y;
         if(c =='a'){
-            x--;
-            move(y,x);
-            addstr(BLANK);
-            move(y,x);
-            addstr(BALL);
-            buf[0] = c;
-            write(pipe_fd,buf,sizeof(buf));
-            refresh();
+            new_x--;
+        }else if(c =='w'){
+            new_y--;
+        }else if(c == 's'){
+            new_y++;
+        }else if(c == 'd'){
+            new_x++;
+        }else{
+            continue;
         }
-        if(c =='w'){
-            x--;
-            move(y,x);
-            addstr(BLANK);
-            x++;
-            y--;
-            move(y,x);
-            addstr(BALL);
-            buf[0] = c;
-            write(pipe_fd,buf,sizeof(buf));
-            refresh();
+        //stay inside the console, the move is not sent so the server stays in sync
+        if(new_x<0 || new_x>=COLS || new_y<0 || new_y>=LINES){
+            continue;
         }
-        if(c == 's'){
-            x--;
-            move(y,x);
-            addstr(BLANK);
-            x++;
-            y++;
-            move(y,x);
-            addstr(BALL);
-            buf[0] = c;
-            write(pipe_fd,buf,sizeof(buf));
-            refresh();
+        buf[0] = c;
+        if(write(pipe_fd,buf,sizeof(buf))!=1){
+            break;
         }
-        if(c == 'd'){
-            x--;
-            move(y,x);
-            addstr(BLANK);
-            x++;
-            x++;
-            move(y,x);
-            addstr(BALL);
-            buf[0] = c;
-            write(pipe_fd,buf,sizeof(buf));
-            refresh();
-        }
+        move(y,x);
+        addstr(BLANK);
+        x = new_x;
+        y = new_y;
+        move(y,x);
+        addstr(BALL);
+        refresh();
+    }
+    if(!want_quit && game_result){
+        show_end(game_result=='W' ? V_END : L_END);
     }
     endwin();
 }
